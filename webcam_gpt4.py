@@ -14,7 +14,7 @@ import sys
 import urllib.request
 import json
 import speech_recognition as sr
-
+from copy import deepcopy
 
 import pygame
 
@@ -149,26 +149,35 @@ def update_street_view(location, pitchheading,Picture):
     pathFolder = "./picture/"
     os.makedirs(pathFolder,exist_ok=True)
     pictureIndex = 0
+    street_view_image_prev = None
+    
+    
     while firstTime == True:        
         try:            
-            print(location,pitchheading)
-            street_view_image = get_street_view_image(location, pitchheading)
-            
-            print(street_view_image[5])
+            #print(location,pitchheading)
+            street_view_image = get_street_view_image(location, pitchheading)#(location, pitchheading)
+            if street_view_image is not None:
+                street_view_image_prev = street_view_image
+                print("good?")
+
+            #print(street_view_image[5])
             if street_view_image is not None:
                 cv2.imshow('Street View', street_view_image) 
-                if Picture == [1,0]:
+                
+            if street_view_image_prev is not None:
+                print("recived :",Picture)
+                if Picture.value > 0:
                     print("go")
-                    cv2.imwrite(pathFolder+f"{pictureIndex}.jpg",street_view_image)
+                    cv2.imwrite(pathFolder+f"{pictureIndex}.jpg",street_view_image_prev)
                     pictureIndex += 1
-                    Picture = []
+                    Picture.value = 0
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
         except:
             time.sleep(0.5)
     
 
-def webcam_pose_estimation(PitchHeading,Picture):
+def webcam_pose_estimation(PitchHeading,sharedPicture):
     cap = cv2.VideoCapture(0)
     
     mp_pose = mp.solutions.pose
@@ -206,16 +215,19 @@ def webcam_pose_estimation(PitchHeading,Picture):
                         (indexMCP.x,indexMCP.y,indexMCP.z)
                     )
                     
-                    if distance/distance1 > 1.3:  # 이 값은 실험을 통해 조절할 수 있습니다.
+                    if distance/distance1 > 1.4:  # 이 값은 실험을 통해 조절할 수 있습니다.
                         current_time = time.time()
+                        
                         if current_time - last_capture_time >= capture_interval:
+                            sharedPicture.value = 1
                             play_mp3(mp3_file)
                             # 내가 원하는 이미지와 함께 촬영
                             #cv2.imwrite('captured_desired_image.jpg', desired_image)
                             last_capture_time = current_time
-                            Picture = [1,0]
+                            
+                            
 
-                    print(Picture)
+                    #print(Picture)
                             
                     
 
@@ -262,11 +274,11 @@ if __name__ == '__main__':
     with Manager() as manager:
         PitchHeading= manager.list()
         Location = manager.list()
-        Picture = manager.list()
+        sharedPicture = manager.Value('i', 0)
         
-        pose_process = Process(target=webcam_pose_estimation, args=(PitchHeading,Picture))
+        pose_process = Process(target=webcam_pose_estimation, args=(PitchHeading,sharedPicture))
         sound_process = Process(target=speech_recognator,args=(Location,True))
-        street_view_process = Process(target=update_street_view, args=(Location,PitchHeading,Picture))
+        street_view_process = Process(target=update_street_view, args=(Location,PitchHeading,sharedPicture))
         
         pose_process.start()
         sound_process.start()
