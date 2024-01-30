@@ -34,6 +34,11 @@ heading = "-45"
 # 카메라 상하 방향 설정 - 범위 -90 ~ 90 기본값 0
 pitch = "30"
 """
+def distance_with_cv2(a,b):
+    return cv2.norm((a.x,a.y,a.z),(b.x,b.y,b.z))
+
+def center_point_distance(a,b,c,d):
+    return cv2.norm(((a.x+c.x)/2,(a.y+c.y)/2,(a.z+c.z)/2),((b.x+d.x)/2,(b.y+d.y)/2,(b.z+d.z)/2))
 
 def calculate_angle(a, b, c):
     """세 점 간의 각도를 계산하는 함수"""
@@ -41,23 +46,43 @@ def calculate_angle(a, b, c):
     angle = abs(math.degrees(radians))
     return angle
 
-# Pose 모델 로드
-#pose = mp_pose.Pose()
 
-def head_nod_algorithm(left_ear,right_ear):#(left_shoulder_coords, right_shoulder_coords, head_coords):
+def head_nod_algorithm(left_eye,right_eye,left_mouth,right_mouth,shoulder_distance,steps,avg_hori,avg_vert):#(left_shoulder_coords, right_shoulder_coords, head_coords):
     """고개를 좌우로 흔드는 경우를 판단하는 알고리즘"""
-   
-    # 머리의 좌우 이동량 계산
-    head_horizontal_movement = (left_ear.z - right_ear.z) 
-    horiDiff = cv2.norm((left_ear.x,left_ear.y,left_ear.z),(right_ear.x,right_ear.y,right_ear.z))
-    head_horizontal_movement /= horiDiff
-    #print(head_horizontal_movement)
-    if head_horizontal_movement > 0.3:  # 예제의 임계값
-        return [-1,head_horizontal_movement]
-    elif head_horizontal_movement <-0.3:
-        return [1,head_horizontal_movement]
-    else:
-        return [0,head_horizontal_movement]
+    # 고개 좌우로 움직이는 경우에 대한 계산
+    head_horizontal_movement = (left_eye.z - right_eye.z) # 머리의 z축 방향 이동량 계산 
+    horiDiff = distance_with_cv2(left_eye,right_eye) # 눈 사이 거리 계산
+    head_horizontal_movement /= horiDiff # 이동량을 눈 사이 거리로 나눠 tan 값을 계산.
+    
+    # 고개 상하로 움직이는 경우에 대한 계산
+    head_virtical_movement = (left_eye.z+right_eye.z)/2-(left_mouth.z+right_mouth.z)/2 #
+    vertDiff = center_point_distance(left_eye,right_eye,left_mouth,right_mouth)
+    head_virtical_movement /= shoulder_distance
+    calib_hori = 0
+    calib_vert = 0
+    
+        
+    ListReturn = [0,0,head_horizontal_movement,head_virtical_movement]
+    if steps > 300:
+        calib_hori = avg_hori
+        calib_vert = avg_vert
+        head_horizontal_movement -= calib_hori
+        if head_horizontal_movement > 0.3:  # 예제의 임계값
+            ListReturn[0] = -1
+        elif head_horizontal_movement < -0.3:
+            ListReturn[0] = 1    
+        
+        head_virtical_movement -= calib_vert
+        if head_virtical_movement > 0.12:
+            ListReturn[1] = -1
+            ListReturn[3] = head_virtical_movement
+        elif head_virtical_movement < -0.12:
+            ListReturn[1] = 1
+            ListReturn[3] = head_virtical_movement
+        ListReturn[2] = head_horizontal_movement
+        ListReturn[3] = head_virtical_movement
+    
+    return ListReturn
 
 def speech_recognator(firstLocation,condition):
     api_key = "AIzaSyC1Ax9tlpuKI8qC7hh0RVnUNkJYrAOJe10"
@@ -195,11 +220,17 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
     mp_drawing = mp.solutions.drawing_utils
     mp_hands = mp.solutions.hands
     phLocal = [0,0]
+    HeadDelay = 0
+    steps = 0
+    avghori = 0
+    avgvert = 0
+    
     with mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5) as hands:
         last_capture_time = time.time()  # 마지막 촬영 시간 초기화
         capture_interval = 4  # 촬영 간격 (초)
 
         while cap.isOpened():
+            HeadDelay += 1
             try:
                 ret, frame = cap.read()
                 if not ret:
@@ -214,8 +245,12 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                     left_shoulder = results.pose_landmarks.landmark[12]
                     right_shoulder = results.pose_landmarks.landmark[11]
                     head = results.pose_landmarks.landmark[30]
-                    left_ear = results.pose_landmarks.landmark[2]
-                    right_ear = results.pose_landmarks.landmark[5]
+                    left_eye = results.pose_landmarks.landmark[2]
+                    right_eye = results.pose_landmarks.landmark[5]
+                    left_mouth = results.pose_landmarks.landmark[9]
+                    right_mouth = results.pose_landmarks.landmark[10]
+
+
                     shoulder_distance1 = cv2.norm((left_shoulder.x,left_shoulder.y,left_shoulder.z),(right_shoulder.x,right_shoulder.y,right_shoulder.z))
                     left_thumb1 = results.pose_landmarks.landmark[21]
                     right_index1 = results.pose_landmarks.landmark[22]
@@ -232,12 +267,31 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
 
                     # 각도를 화면에 표시
                     #cv2.putText(frame, f"Angle: {shoulder_angle:.2f} degrees", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-                    hna = head_nod_algorithm(left_ear,right_ear)#(left_shoulder_coords,right_shoulder_coords,head_coords)
-                    cv2.putText(frame, f"LR diff : {hna[1]:.2f}", (50, 140), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-                    ph = [0,int(5*hna[0])]
+                    steps += 1
                     
-                    for i2,p2 in enumerate(ph):
-                        phLocal[i2] += p2
+                    hna = head_nod_algorithm(left_eye,right_eye,left_mouth,right_mouth,shoulder_distance1,steps,avghori,avgvert)#(left_shoulder_coords,right_shoulder_coords,head_coords)                    
+                    cv2.putText(frame, f"LR diff : {hna[2]:.2f}", (50, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                    cv2.putText(frame, f"HD diff : {hna[3]:.2f}", (50, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                    if steps < 300:
+                        avghori = avghori*(steps-1)/steps +hna[2]/steps
+                        avgvert = avgvert*(steps-1)/steps +hna[3]/steps
+                    if steps % 100 == 0:
+                        print("hori avg :",avghori)
+                        print("vert avg :",avgvert)
+
+                    ph = [int(20*hna[1]),int(30*hna[0])]
+                    if HeadDelay > 20:
+                        for i2,p2 in enumerate(ph):
+                            phLocal[i2] += p2
+                            if i2 == 1:
+                                phLocal[i2] = phLocal[i2] % 360
+                            else:
+                                if phLocal[i2] >= 60:
+                                    phLocal[i2] = 60
+                                elif phLocal[i2] <= -60:
+                                    phLocal[i2] = -60
+                        HeadDelay =0
+                            
                         
                     PitchHeading[:] = phLocal
                         
