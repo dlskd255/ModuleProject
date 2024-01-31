@@ -47,7 +47,7 @@ def calculate_angle(a, b, c):
     return angle
 
 
-def head_nod_algorithm(left_eye,right_eye,left_mouth,right_mouth,shoulder_distance,steps,avg_hori,avg_vert):#(left_shoulder_coords, right_shoulder_coords, head_coords):
+def head_nod_algorithm(left_eye,right_eye,poseLandmarks,steps,avg_hori,avg_vert):#(left_shoulder_coords, right_shoulder_coords, head_coords):
     """고개를 상하좌우로 흔드는 경우를 판단하는 알고리즘"""
     
     # 고개 좌우로 움직이는 경우에 대한 계산
@@ -55,32 +55,20 @@ def head_nod_algorithm(left_eye,right_eye,left_mouth,right_mouth,shoulder_distan
     horiDiff = distance_with_cv2(left_eye,right_eye) # 눈 사이 거리 계산
     head_horizontal_movement /= horiDiff # 이동량을 눈 사이 거리로 나눠 tan 값을 계산.
     
-    # 고개 상하로 움직이는 경우에 대한 계산
-    head_virtical_movement = (left_eye.z+right_eye.z)/2-(left_mouth.z+right_mouth.z)/2 
-    #vertDiff = center_point_distance(left_eye,right_eye,left_mouth,right_mouth)
-    head_virtical_movement /= shoulder_distance/1.5
     calib_hori = 0
     calib_vert = 0
-    
         
-    ListReturn = [0,0,head_horizontal_movement,head_virtical_movement]
+    ListReturn = [0,0,head_horizontal_movement,0,"",""]
     if steps > 300:
         calib_hori = avg_hori
         calib_vert = avg_vert
         head_horizontal_movement -= calib_hori
-        if head_horizontal_movement > 0.3:  # 예제의 임계값
-            ListReturn[0] = -1
-        elif head_horizontal_movement < -0.3:
-            ListReturn[0] = 1    
-        
-        head_virtical_movement -= calib_vert
-        if head_virtical_movement > 0.12:
-            ListReturn[1] = -1
-            
-        elif head_virtical_movement < -0.12:
-            ListReturn[1] = 1
-        ListReturn[2] = head_horizontal_movement
-        ListReturn[3] = head_virtical_movement
+        if head_horizontal_movement > 0.25:  # 예제의 임계값
+            ListReturn[0] = 1
+            ListReturn[4] = "right"
+        elif head_horizontal_movement < -0.25:
+            ListReturn[0] = -1    
+            ListReturn[4] = "left"
     
     return ListReturn
 
@@ -90,7 +78,7 @@ def speech_recognator(firstLocation,condition):
     condition = True
     while condition == True:
         try:
-            time.sleep(1)
+            
             print("record process is on")
             r = sr.Recognizer() # 음성 인식을 위한 객체 생성
             
@@ -120,7 +108,8 @@ def speech_recognator(firstLocation,condition):
 
             except:   
                 pass
-        time.sleep(1)
+            time.sleep(0.1)
+        
 
 def geocode_address(address, api_key):
     base_url = "https://maps.googleapis.com/maps/api/geocode/json"
@@ -186,20 +175,20 @@ def update_street_view(location, pitchheading,Picture):
     os.makedirs(pathFolder,exist_ok=True)
     pictureIndex = 0
     street_view_image_prev = None
-    
-    
+    stepsStreetView = 0
+
     while firstTime == True:        
         try:            
-            #print(location,pitchheading)
-            print(pitchheading)
+            stepsStreetView += 1
+            if stepsStreetView % 60 == 0:
+                print(pitchheading)
             street_view_image = get_street_view_image(location, pitchheading)#(location, pitchheading)
             if street_view_image is not None:
                 street_view_image_prev = street_view_image
-                #print("good?")
 
-            #print(street_view_image[5])
             if street_view_image is not None:
-                cv2.imshow('Street View', street_view_image) 
+                cv2.imshow('Street View', street_view_image)
+
                 
             if street_view_image_prev is not None:
                 #print("recived :",Picture)
@@ -211,12 +200,11 @@ def update_street_view(location, pitchheading,Picture):
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
         except:
-            time.sleep(0.5)
+            time.sleep(0.01)
     
 
 def webcam_pose_estimation(PitchHeading,sharedPicture):
     cap = cv2.VideoCapture(0)
-    
     mp_pose = mp.solutions.pose
     pose = mp_pose.Pose()  # Initialize once
     mp_drawing = mp.solutions.drawing_utils
@@ -235,54 +223,44 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
             HeadDelay += 1
             try:
                 ret, frame = cap.read()
+
                 if not ret:
                     continue
+                flipped_frame = cv2.flip(frame, 1)
                 # BGR을 RGB로 변환
-                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                rgb_frame = cv2.cvtColor(flipped_frame, cv2.COLOR_BGR2RGB)
 
-                results = pose.process(frame)
-
-                if results.pose_landmarks:
+                results = pose.process(flipped_frame)
+                rpl = results.pose_landmarks
+                if rpl:
+                    poseLandmarks = rpl.landmark
                     # 어깨(landmark 12, 11)
-                    left_shoulder = results.pose_landmarks.landmark[12]
-                    right_shoulder = results.pose_landmarks.landmark[11]
+                    left_shoulder = poseLandmarks[12]
+                    right_shoulder = poseLandmarks[11]
                     
-                    left_eye = results.pose_landmarks.landmark[2]
-                    right_eye = results.pose_landmarks.landmark[5]
-                    left_mouth = results.pose_landmarks.landmark[9]
-                    right_mouth = results.pose_landmarks.landmark[10]
+                    left_eye = poseLandmarks[2]
+                    right_eye = poseLandmarks[5]
 
 
                     shoulder_distance1 = cv2.norm((left_shoulder.x,left_shoulder.y,left_shoulder.z),(right_shoulder.x,right_shoulder.y,right_shoulder.z))
-                    left_thumb1 = results.pose_landmarks.landmark[21]
-                    right_index1 = results.pose_landmarks.landmark[20]
+                    left_thumb1 = poseLandmarks[21]
+                    right_index1 = poseLandmarks[20]
                     finger_distance1 = cv2.norm((left_thumb1.x,left_thumb1.y,left_thumb1.z),(right_index1.x,right_index1.y,right_index1.z))
                     finger_distance1/=shoulder_distance1
-                    # 어깨 사이의 각도 계산
-                    #shoulder_angle = calculate_angle(left_shoulder_coords, head_coords, right_shoulder_coords)
-
-                    # 각도에 따라 고개의 상태 표시
-                    """if shoulder_angle > 20:  # 예제의 임계값
-                        cv2.putText(frame, "Head Down", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-                    else:
-                        cv2.putText(frame, "Head Up", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)"""
-
-                    # 각도를 화면에 표시
-                    #cv2.putText(frame, f"Angle: {shoulder_angle:.2f} degrees", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                
                     steps += 1
                     
-                    hna = head_nod_algorithm(left_eye,right_eye,left_mouth,right_mouth,shoulder_distance1,steps,avghori,avgvert)#(left_shoulder_coords,right_shoulder_coords,head_coords)                    
-                    cv2.putText(frame, f"LR diff : {hna[2]:.2f}", (50, 20), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-                    cv2.putText(frame, f"HD diff : {hna[3]:.2f}", (50, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-                    
+                    hna = head_nod_algorithm(left_eye,right_eye,poseLandmarks,steps,avghori,avgvert)                    
+                    cv2.putText(flipped_frame, f"LR  diff : {hna[2]:.2f}   {hna[4]}", (50, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                
                     if steps < 300:
-                        cv2.putText(frame, f"In calibration : {steps:d}/300", (50, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                        cv2.putText(flipped_frame, f"In calibration : {steps:d}/300", (50, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
                         avghori = avghori*(steps-1)/steps +hna[2]/steps
                         avgvert = avgvert*(steps-1)/steps +hna[3]/steps
-                    elif steps>= 300 and steps <390:
-                        cv2.putText(frame, f"Calibration is done !!", (50, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-                        cv2.putText(frame, f"x axis : {avghori:.2f}, y axis : {avgvert:2f}",(50, 180), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-                    if steps % 100 == 0:
+                    elif steps>= 300 and steps <420:
+                        cv2.putText(flipped_frame, f"Calibration is done !!", (50, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                        cv2.putText(flipped_frame, f"x axis : {avghori:.2f}",(50, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                    if steps % 100 == 0 and steps < 420:
                         print("hori avg :",avghori)
                         print("vert avg :",avgvert)
 
@@ -307,7 +285,7 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                 # 손 키포인트를 그리기 위한 코드
                 if resultsHand.multi_hand_landmarks:
                     for landmarks in resultsHand.multi_hand_landmarks:
-                        mp_drawing.draw_landmarks(frame, landmarks, mp_hands.HAND_CONNECTIONS)
+                        mp_drawing.draw_landmarks(flipped_frame, landmarks, mp_hands.HAND_CONNECTIONS)
 
                         # 검지와 엄지 각도 계산
                         index_finger = landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
@@ -321,11 +299,11 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                             (index_finger.x, index_finger.y,index_finger.z),
                             (indexMCP.x,indexMCP.y,indexMCP.z)
                         )
-                        if results.pose_landmarks:
+                        if poseLandmarks:
                             distance2 = finger_distance1
                         else:
                             distance2 = 1
-                        print(distance2)
+                        #print(distance2)
                         if distance/distance1 > 1.4 and distance2 <0.3:  # 이 값은 실험을 통해 조절할 수 있습니다.
                             current_time = time.time()
                             
@@ -339,7 +317,7 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                         #print(Picture)
                 
 
-                cv2.imshow('Webcam', frame)
+                cv2.imshow('Webcam', flipped_frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
             except:
