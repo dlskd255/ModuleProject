@@ -48,16 +48,17 @@ def calculate_angle(a, b, c):
 
 
 def head_nod_algorithm(left_eye,right_eye,left_mouth,right_mouth,shoulder_distance,steps,avg_hori,avg_vert):#(left_shoulder_coords, right_shoulder_coords, head_coords):
-    """고개를 좌우로 흔드는 경우를 판단하는 알고리즘"""
+    """고개를 상하좌우로 흔드는 경우를 판단하는 알고리즘"""
+    
     # 고개 좌우로 움직이는 경우에 대한 계산
     head_horizontal_movement = (left_eye.z - right_eye.z) # 머리의 z축 방향 이동량 계산 
     horiDiff = distance_with_cv2(left_eye,right_eye) # 눈 사이 거리 계산
     head_horizontal_movement /= horiDiff # 이동량을 눈 사이 거리로 나눠 tan 값을 계산.
     
     # 고개 상하로 움직이는 경우에 대한 계산
-    head_virtical_movement = (left_eye.z+right_eye.z)/2-(left_mouth.z+right_mouth.z)/2 #
-    vertDiff = center_point_distance(left_eye,right_eye,left_mouth,right_mouth)
-    head_virtical_movement /= shoulder_distance
+    head_virtical_movement = (left_eye.z+right_eye.z)/2-(left_mouth.z+right_mouth.z)/2 
+    #vertDiff = center_point_distance(left_eye,right_eye,left_mouth,right_mouth)
+    head_virtical_movement /= shoulder_distance/1.5
     calib_hori = 0
     calib_vert = 0
     
@@ -75,10 +76,9 @@ def head_nod_algorithm(left_eye,right_eye,left_mouth,right_mouth,shoulder_distan
         head_virtical_movement -= calib_vert
         if head_virtical_movement > 0.12:
             ListReturn[1] = -1
-            ListReturn[3] = head_virtical_movement
+            
         elif head_virtical_movement < -0.12:
             ListReturn[1] = 1
-            ListReturn[3] = head_virtical_movement
         ListReturn[2] = head_horizontal_movement
         ListReturn[3] = head_virtical_movement
     
@@ -104,18 +104,20 @@ def speech_recognator(firstLocation,condition):
             confidence = float(result['alternative'][0]['confidence'])
             if confidence > 0.85:
                 result1 = result['alternative'][0]['transcript']
-                print(f"입력 받았습니다. {result1}로 이동합니다.")
-                values = geocode_address(result1,api_key)
-                if values[0] == True:
-                    location2 = values[1:]
-                    print(f"경도와 위도를 반환합니다 : {location2}")
-                    firstLocation[:] = location2
-                    prevLoc = location2
-                    #print(firstLocation)
+                if result1 != "보정":
+                    print(f"입력 받았습니다. {result1}로 이동합니다.")
+                    values = geocode_address(result1,api_key)
+                    if values[0] == True:
+                        location2 = values[1:]
+                        print(f"경도와 위도를 반환합니다 : {location2}")
+                        firstLocation[:] = location2
+                        prevLoc = location2
+                #else:
+
         except:
             try:
                 firstLocation[:] = prevLoc
-                #print(prevLoc)
+
             except:   
                 pass
         time.sleep(1)
@@ -241,10 +243,10 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                 results = pose.process(frame)
 
                 if results.pose_landmarks:
-                    # 어깨(landmark 12, 11)와 머리(landmark 30)의 좌표 획득
+                    # 어깨(landmark 12, 11)
                     left_shoulder = results.pose_landmarks.landmark[12]
                     right_shoulder = results.pose_landmarks.landmark[11]
-                    head = results.pose_landmarks.landmark[30]
+                    
                     left_eye = results.pose_landmarks.landmark[2]
                     right_eye = results.pose_landmarks.landmark[5]
                     left_mouth = results.pose_landmarks.landmark[9]
@@ -253,7 +255,7 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
 
                     shoulder_distance1 = cv2.norm((left_shoulder.x,left_shoulder.y,left_shoulder.z),(right_shoulder.x,right_shoulder.y,right_shoulder.z))
                     left_thumb1 = results.pose_landmarks.landmark[21]
-                    right_index1 = results.pose_landmarks.landmark[22]
+                    right_index1 = results.pose_landmarks.landmark[20]
                     finger_distance1 = cv2.norm((left_thumb1.x,left_thumb1.y,left_thumb1.z),(right_index1.x,right_index1.y,right_index1.z))
                     finger_distance1/=shoulder_distance1
                     # 어깨 사이의 각도 계산
@@ -270,11 +272,16 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                     steps += 1
                     
                     hna = head_nod_algorithm(left_eye,right_eye,left_mouth,right_mouth,shoulder_distance1,steps,avghori,avgvert)#(left_shoulder_coords,right_shoulder_coords,head_coords)                    
-                    cv2.putText(frame, f"LR diff : {hna[2]:.2f}", (50, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-                    cv2.putText(frame, f"HD diff : {hna[3]:.2f}", (50, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                    cv2.putText(frame, f"LR diff : {hna[2]:.2f}", (50, 20), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                    cv2.putText(frame, f"HD diff : {hna[3]:.2f}", (50, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                    
                     if steps < 300:
+                        cv2.putText(frame, f"In calibration : {steps:d}/300", (50, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
                         avghori = avghori*(steps-1)/steps +hna[2]/steps
                         avgvert = avgvert*(steps-1)/steps +hna[3]/steps
+                    elif steps>= 300 and steps <390:
+                        cv2.putText(frame, f"Calibration is done !!", (50, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                        cv2.putText(frame, f"x axis : {avghori:.2f}, y axis : {avgvert:2f}",(50, 180), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
                     if steps % 100 == 0:
                         print("hori avg :",avghori)
                         print("vert avg :",avgvert)
@@ -350,6 +357,7 @@ if __name__ == '__main__':
         PitchHeading= manager.list()
         Location = manager.list()
         sharedPicture = manager.Value('i', 0)
+        calibStart = manager.Value('i',0)
         
         pose_process = Process(target=webcam_pose_estimation, args=(PitchHeading,sharedPicture))
         sound_process = Process(target=speech_recognator,args=(Location,True))
