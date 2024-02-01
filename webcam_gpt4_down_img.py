@@ -17,7 +17,7 @@ import json
 import speech_recognition as sr
 from copy import deepcopy
 import pickle
-
+import re
 import pygame
 
 def play_mp3(mp3_file):
@@ -46,6 +46,15 @@ def calculate_angle(a, b, c):
     radians = math.atan2(c[1]-b[1], c[0]-b[0]) - math.atan2(a[1]-b[1], a[0]-b[0])
     angle = abs(math.degrees(radians))
     return angle
+
+def extract_and_sum_numbers(text):
+    # 숫자만 추출하여 리스트로 저장
+    numbers = text.split(".")
+    
+    # 숫자를 문자열에서 추출하고 합치기
+    number = numbers[0]+numbers[1]
+
+    return number
 
 
 def head_nod_algorithm(left_eye,right_eye,poseLandmarks,steps,avg_hori,avg_vert):#(left_shoulder_coords, right_shoulder_coords, head_coords):
@@ -93,7 +102,7 @@ def speech_recognator(firstLocation,condition):
             if confidence > 0.85:
                 result1 = result['alternative'][0]['transcript']
                 if result1 != "보정":
-                    print(f"입력 받았습니다. {result1}로 이동합니다.")
+                    print(f"입력 받았습니다. {result1}(으)로 이동합니다.")
                     values = geocode_address(result1,api_key)
                     if values[0] == True:
                         location2 = [result1]+values[1:3]
@@ -130,6 +139,7 @@ def geocode_address(address, api_key):
 
         # 결과 확인
         if data["status"] == "OK":
+            #print(data)
             # 첫 번째 결과의 위도와 경도 추출
             location1 = data["results"][0]["geometry"]["location"]
             latitude = location1["lat"]
@@ -177,18 +187,28 @@ def make_street_view_pickle(location):
     street_view_image_list = [] 
     while doCycle == True:
         try:
-            street_path = mapFolder+location[0]+".pkl"
-            if not os.path.exists(street_path):
-                svil = []
-                for i in range(36):
-                    svil.append(get_street_view_image(location[1:3],[0,10*i]))
-                street_view_image_list.append(location[1:3])
-                street_view_image_list.append(svil)
             
-                with open(mapFolder+location[0]+".pkl","wb") as file:
-                    pickle.dump(street_view_image_list,file)
+            street_path = mapFolder+f"{extract_and_sum_numbers(str(location[1]))}_{extract_and_sum_numbers(str(location[2]))}.pkl"
+            #print(get_street_view_image(location[1:3],[0,0]))
+            if geocode_address(location[0],api_key) != None:
+                
+                if not os.path.exists(street_path):
+                    print("down process is on")
+                    svil = []
+                    for i in range(36):
+                        svil.append(get_street_view_image(location[1:3],[0,10*i]))
+                    street_view_image_list.append(location[1:3])
+                    street_view_image_list.append(svil)
+                
+                    with open(street_path,"wb") as file:
+                        pickle.dump(street_view_image_list,file)
+                    print("download is done")
+                time.sleep(0.02)
+            else: 
+                time.sleep(0.02)
         except:
-            time.sleep(0.5)
+            #print(traceback.format_exc())
+            time.sleep(0.2)
 
 def update_street_view(location, pitchheading,Picture):
     firstTime = True
@@ -201,26 +221,29 @@ def update_street_view(location, pitchheading,Picture):
 
     while firstTime == True:        
         try:
-            street_path = mapFolder+location[0]+".pkl"
+            street_path = mapFolder+f"{extract_and_sum_numbers(str(location[1]))}_{extract_and_sum_numbers(str(location[2]))}.pkl"
             if os.path.exists(street_path):
-                if street_view_image_list[0] != location[0]:
+                
+                if street_view_image_list[0] != location[1:3]:
                     with open(street_path,'rb') as file:
                         street_view_image_list = pickle.load(file)
-                
-                #print(len(street_view_image_list),pitchheading)
                 street_view_image = street_view_image_list[1][int(round(pitchheading[1]/10))]
-                cv2.imshow('Street View', street_view_image)
-                #print("after :",len(street_view_image_list),pitchheading)
-                if Picture.value > 0:
-                    #print("go")
-                    cv2.imwrite(pathFolder+f"{pictureIndex}.jpg",street_view_image)
-                    pictureIndex += 1
-                    Picture.value = 0
-                #print("after 2 :",len(street_view_image_list),pitchheading)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
+                        
             else:
-                time.sleep(0.01)
+                street_view_image = get_street_view_image(location, pitchheading)  
+                
+            cv2.imshow('Street View', street_view_image)
+            #print("after :",len(street_view_image_list),pitchheading)
+            if Picture.value > 0:
+                #path
+                #print("go")
+                cv2.imwrite(pathFolder+f"{location[0]}_{pictureIndex}.jpg",street_view_image)
+                pictureIndex += 1
+                Picture.value = 0
+            #print("after 2 :",len(street_view_image_list),pitchheading)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+            
         except:
             #print(traceback.format_exc())
             time.sleep(0.01)
@@ -302,7 +325,7 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                             
                         
                     PitchHeading[:] = phLocal
-                    print(phLocal)
+                    
                         
                 # 손 감지 수행
                 resultsHand = hands.process(rgb_frame)
@@ -328,12 +351,16 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                         else:
                             distance2 = 1
                         #print(distance2)
-                        if distance/distance1 > 1.4 and distance2 <0.3:  # 이 값은 실험을 통해 조절할 수 있습니다.
+                        if distance/distance1 > 1.4:  # 이 값은 실험을 통해 조절할 수 있습니다.
                             current_time = time.time()
                             
                             if current_time - last_capture_time >= capture_interval:
                                 sharedPicture.value = 1
                                 play_mp3(mp3_file)
+                                # 화면 어둡게 만들기 (가중치 조절 가능)
+                                dark_frame = np.zeros_like(flipped_frame)
+                                alpha = 0.1
+                                cv2.addWeighted(flipped_frame, alpha, dark_frame, 1 - alpha, 0, flipped_frame)
                                 # 내가 원하는 이미지와 함께 촬영
                                 #cv2.imwrite('captured_desired_image.jpg', desired_image)
                                 last_capture_time = current_time
