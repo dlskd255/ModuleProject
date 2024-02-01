@@ -105,7 +105,7 @@ def speech_recognator(firstLocation,condition):
                     print(f"입력 받았습니다. {result1}(으)로 이동합니다.")
                     values = geocode_address(result1,api_key)
                     if values[0] == True:
-                        location2 = [result1]+values[1:3]
+                        location2 = [result1]+[round(values[1],6)]+[round(values[2],6)]
                         print(f"경도와 위도를 반환합니다 : {location2}")
                         firstLocation[:] = location2
                         prevLoc = location2
@@ -261,7 +261,9 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
     avghori = 0
     avgvert = 0
     photo_Delay = 0
-    
+    pathSubFolder = "./picture/webcam/"
+    os.makedirs(pathSubFolder,exist_ok=True)
+    listsub = os.listdir(pathSubFolder)
     with mp_hands.Hands(min_detection_confidence=0.6, min_tracking_confidence=0.6) as hands:
         last_capture_time = time.time()  # 마지막 촬영 시간 초기화
         capture_interval = 6  # 촬영 간격 (초)
