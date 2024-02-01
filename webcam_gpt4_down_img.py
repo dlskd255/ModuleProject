@@ -212,10 +212,13 @@ def make_street_view_pickle(location):
 
 def update_street_view(location, pitchheading,Picture):
     firstTime = True
-    pathFolder = "./picture/"
+    PictureFolder = "./picture/pic/"
+    SubFolder = "./picture/bgSub/"
     mapFolder = "./maps/"
+    pathSubFolder = "./picture/webcam/"
     os.makedirs(mapFolder,exist_ok=True)
-    os.makedirs(pathFolder,exist_ok=True)
+    os.makedirs(SubFolder,exist_ok=True)
+    
     pictureIndex = 0
     street_view_image_list = [0]
 
@@ -235,11 +238,62 @@ def update_street_view(location, pitchheading,Picture):
             cv2.imshow('Street View', street_view_image)
             #print("after :",len(street_view_image_list),pitchheading)
             if Picture.value > 0:
+                Name = f"{extract_and_sum_numbers(str(location[1]))}_{extract_and_sum_numbers(str(location[2]))}"
                 #path
                 print("snapshot")
-                cv2.imwrite(pathFolder+f"{extract_and_sum_numbers(str(location[1]))}_{extract_and_sum_numbers(str(location[2]))}_{pictureIndex}.jpg",street_view_image)
+                cv2.imwrite(SubFolder+Name+f"_{pictureIndex}.png",street_view_image)
+                
+                picFoldPath = PictureFolder+Name+"/"
+                os.makedirs(picFoldPath,exist_ok=True)
+                ldp = len(os.listdir(picFoldPath))+1
+                
+
+                # 전경 이미지(사람) 및 배경 이미지 로드
+                foreground = cv2.imread(pathSubFolder+'/webcam.png', cv2.IMREAD_UNCHANGED)  # 알파 채널 포함하여 로드
+                background = cv2.imread(SubFolder+Name+f"_{pictureIndex}.png")
+
+                # 전경 이미지의 해상도를 50%로 줄임
+                scale_percent = 50  # 전경 이미지의 해상도를 50%로 줄이기 위한 비율
+                width = int(foreground.shape[1] * scale_percent / 100)
+                height = int(foreground.shape[0] * scale_percent / 100)
+                dim = (width, height)
+
+                # 리사이즈된 전경 이미지
+                resized_foreground = cv2.resize(foreground, dim, interpolation=cv2.INTER_AREA)
+
+                # 배경 및 전경 이미지의 크기 확인
+                bg_height, bg_width = background.shape[:2]
+                fg_height, fg_width = resized_foreground.shape[:2]
+
+                # 전경 이미지를 배경 이미지 맨 아래쪽에 배치하기 위한 시작점 계산
+                start_y = bg_height - fg_height
+                start_x = (bg_width - fg_width) // 2
+
+                # 전경 이미지의 알파 채널을 사용하여 배경과 전경 합성
+                fore_alpha = resized_foreground[:, :, 3] / 255.0
+                fore_rgb = resized_foreground[:, :, :3]
+
+                background_rgb = background[start_y:start_y+fg_height, start_x:start_x+fg_width, :3]
+                back_alpha = 1.0 - fore_alpha
+
+                # 전경 및 배경 이미지 합성
+                composite_rgb = fore_rgb * fore_alpha[:, :, np.newaxis] + background_rgb * back_alpha[:, :, np.newaxis]
+
+                # 합성된 영역을 원본 배경 이미지에 복사
+                background[start_y:start_y+fg_height, start_x:start_x+fg_width, :3] = composite_rgb
+
+                newPicPath = picFoldPath+f"/{ldp}.png"
+                # 결과 이미지 저장
+                cv2.imwrite(newPicPath, background)
+
+                # 결과 확인을 위해 이미지 표시
+                cv2.imshow('Composite Image', background)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
                 pictureIndex += 1
                 Picture.value = 0
+                
+                
             #print("after 2 :",len(street_view_image_list),pitchheading)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -263,7 +317,7 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
     photo_Delay = 0
     pathSubFolder = "./picture/webcam/"
     os.makedirs(pathSubFolder,exist_ok=True)
-    listsub = os.listdir(pathSubFolder)
+    
     mp_selfie_segmentation = mp.solutions.selfie_segmentation
     selfie_segmentation = mp_selfie_segmentation.SelfieSegmentation(model_selection=1)
     
@@ -279,12 +333,23 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
 
                 if not ret:
                     continue
-                for_picture_frame = cv2.cvtColor(cv2.flip(frame,1),cv2.COLOR_BGR2RGB)
+                #for_picture_frame = cv2.cvtColor(cv2.flip(frame,1),cv2.COLOR_BGR2RGB)
                 flipped_frame = cv2.flip(frame, 1)
                 # BGR을 RGB로 변환
                 rgb_frame = cv2.cvtColor(flipped_frame, cv2.COLOR_BGR2RGB)
+                results1 = selfie_segmentation.process(rgb_frame)
 
+
+                condition = np.stack((results1.segmentation_mask,) * 3, axis=-1) > 0.05
+                bg_color = np.ones(rgb_frame.shape, dtype=np.uint8) * 192  # 배경을 회색으로 설정
+                processed_frame = np.where(condition, rgb_frame, bg_color)
+
+                # 처리된 프레임을 BGR 형식으로 변환 후 표시
+                processed_frame_bgr = cv2.cvtColor(processed_frame, cv2.COLOR_RGB2BGR)
                 
+                flipped_frame = processed_frame_bgr
+
+
                 results = pose.process(rgb_frame)
                 rpl = results.pose_landmarks
                 if rpl:
@@ -352,27 +417,34 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                         dist_indeMCP_wrist = distance_with_cv2(indexMCP,wrist)
                         
                         #print(distance2)
-                        if dist_indexTIP_thumbTIP/dist_indeMCP_wrist > 1.5:  # 이 값은 실험을 통해 조절할 수 있습니다.
-                            photo_Delay+=1
-                            if photo_Delay >30 and dist_indexTIP_thumbTIP/dist_indeMCP_wrist > 1.5:
-                                photo_Delay = 0
-                                current_time = time.time()
-                                if current_time - last_capture_time >= capture_interval:
+                        if sharedPicture.value < 1:
+                            if dist_indexTIP_thumbTIP/dist_indeMCP_wrist > 1.5:  # 이 값은 실험을 통해 조절할 수 있습니다.
+                                photo_Delay+=1
+                                if photo_Delay >45 and dist_indexTIP_thumbTIP/dist_indeMCP_wrist > 1.5:
+                                    photo_Delay = 0
+                                    current_time = time.time()
+                                    if current_time - last_capture_time >= capture_interval:
+                                        alpha_channel = np.where(results1.segmentation_mask > 0.05, 255, 0).astype(np.uint8)
+
+                                        # RGB 프레임으로부터 BGR 프레임 생성
+                                        bgr_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR)
+                                        # BGR 프레임과 알파 채널을 결합하여 RGBA 이미지 생성
+                                        rgba_frame = cv2.merge((bgr_frame, alpha_channel))
+                                        
+                                        cv2.imwrite(pathSubFolder+f'webcam.png', rgba_frame)
+                                        play_mp3(mp3_file)
+                                        # 화면 어둡게 만들기 (가중치 조절 가능)
+                                        dark_frame = np.zeros_like(flipped_frame)
+                                        alpha = 0.1
+                                        cv2.addWeighted(flipped_frame, alpha, dark_frame, 1 - alpha, 0, flipped_frame)
+                                        # 내가 원하는 이미지와 함께 촬영
+                                        
+                                        last_capture_time = current_time
+                                        sharedPicture.value = 1
                                     
-                                    sharedPicture.value += 1
-                                    cv2.imwrite('webcam.jpg', for_picture_frame)
-                                    play_mp3(mp3_file)
-                                    # 화면 어둡게 만들기 (가중치 조절 가능)
-                                    dark_frame = np.zeros_like(flipped_frame)
-                                    alpha = 0.1
-                                    cv2.addWeighted(flipped_frame, alpha, dark_frame, 1 - alpha, 0, flipped_frame)
-                                    # 내가 원하는 이미지와 함께 촬영
-                                    
-                                    last_capture_time = current_time
-                                
-                        #print(Picture)
+                            #print(Picture)
                 
-              
+                #cv2.imshow('Processed Frame', processed_frame_bgr)
                 cv2.imshow('Webcam', flipped_frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
