@@ -73,10 +73,10 @@ def head_nod_algorithm(left_eye,right_eye,poseLandmarks,steps,avg_hori,avg_vert)
         calib_hori = avg_hori
         calib_vert = avg_vert
         head_horizontal_movement -= calib_hori
-        if head_horizontal_movement > 0.25:  # 예제의 임계값
+        if head_horizontal_movement > 0.35:  # 예제의 임계값
             ListReturn[0] = 1
             ListReturn[4] = "right"
-        elif head_horizontal_movement < -0.25:
+        elif head_horizontal_movement < -0.35:
             ListReturn[0] = -1    
             ListReturn[4] = "left"
     
@@ -230,7 +230,7 @@ def update_street_view(location, pitchheading,Picture):
                 street_view_image = street_view_image_list[1][int(round(pitchheading[1]/10))]
                         
             else:
-                street_view_image = get_street_view_image(location, pitchheading)  
+                street_view_image = get_street_view_image(location[1:3], pitchheading)  
                 
             cv2.imshow('Street View', street_view_image)
             #print("after :",len(street_view_image_list),pitchheading)
@@ -252,7 +252,7 @@ def update_street_view(location, pitchheading,Picture):
 def webcam_pose_estimation(PitchHeading,sharedPicture):
     cap = cv2.VideoCapture(0)
     mp_pose = mp.solutions.pose
-    pose = mp_pose.Pose()  # Initialize once
+    pose = mp_pose.Pose(min_detection_confidence=0.7, min_tracking_confidence=0.7)  # Initialize once
     mp_drawing = mp.solutions.drawing_utils
     mp_hands = mp.solutions.hands
     phLocal = [0,0]
@@ -260,10 +260,12 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
     steps = 0
     avghori = 0
     avgvert = 0
+    photo_Delay = 0
     
-    with mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5) as hands:
+    with mp_hands.Hands(min_detection_confidence=0.6, min_tracking_confidence=0.6) as hands:
         last_capture_time = time.time()  # 마지막 촬영 시간 초기화
-        capture_interval = 4  # 촬영 간격 (초)
+        capture_interval = 6  # 촬영 간격 (초)
+        
 
         while cap.isOpened():
             HeadDelay += 1
@@ -335,35 +337,32 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                         mp_drawing.draw_landmarks(flipped_frame, landmarks, mp_hands.HAND_CONNECTIONS)
 
                         # 검지와 엄지 각도 계산
-                        index_finger = landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-                        thumb = landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
+                        indexfinger_tip = landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+                        thumb_tip = landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
                         indexMCP = landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP]
-                        distance = cv2.norm(
-                            (index_finger.x, index_finger.y,index_finger.z),
-                            (thumb.x, thumb.y,thumb.z)
-                        )
-                        distance1 =cv2.norm(
-                            (index_finger.x, index_finger.y,index_finger.z),
-                            (indexMCP.x,indexMCP.y,indexMCP.z)
-                        )
-                        if poseLandmarks:
-                            distance2 = finger_distance1
-                        else:
-                            distance2 = 1
+                        wrist = landmarks.landmark[mp_hands.HandLandmark.WRIST]
+                        dist_indexTIP_thumbTIP = distance_with_cv2(indexfinger_tip,thumb_tip)
+                        dist_indeMCP_wrist = distance_with_cv2(indexMCP,wrist)
+                        
                         #print(distance2)
-                        if distance/distance1 > 1.4:  # 이 값은 실험을 통해 조절할 수 있습니다.
-                            current_time = time.time()
-                            
-                            if current_time - last_capture_time >= capture_interval:
-                                sharedPicture.value = 1
-                                play_mp3(mp3_file)
-                                # 화면 어둡게 만들기 (가중치 조절 가능)
-                                dark_frame = np.zeros_like(flipped_frame)
-                                alpha = 0.1
-                                cv2.addWeighted(flipped_frame, alpha, dark_frame, 1 - alpha, 0, flipped_frame)
-                                # 내가 원하는 이미지와 함께 촬영
-                                #cv2.imwrite('captured_desired_image.jpg', desired_image)
-                                last_capture_time = current_time
+                        if dist_indexTIP_thumbTIP/dist_indeMCP_wrist > 1.5:  # 이 값은 실험을 통해 조절할 수 있습니다.
+                            photo_Delay+=1
+                            if photo_Delay >30 and dist_indexTIP_thumbTIP/dist_indeMCP_wrist > 1.5:
+                                photo_Delay = 0
+                                current_time = time.time()
+                                if current_time - last_capture_time >= capture_interval:
+                                    
+                                    sharedPicture.value = 1
+                                    cv2.imwrite('webcam.jpg', flipped_frame)
+                                    play_mp3(mp3_file)
+                                    # 화면 어둡게 만들기 (가중치 조절 가능)
+                                    dark_frame = np.zeros_like(flipped_frame)
+                                    alpha = 0.1
+                                    cv2.addWeighted(flipped_frame, alpha, dark_frame, 1 - alpha, 0, flipped_frame)
+                                    # 내가 원하는 이미지와 함께 촬영
+                                    
+                                    
+                                    last_capture_time = current_time
                                 
                         #print(Picture)
                 
