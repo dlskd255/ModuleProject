@@ -184,14 +184,14 @@ def make_street_view_pickle(location):
     doCycle = True
     mapFolder = "./maps/"
     os.makedirs(mapFolder,exist_ok=True)
-    street_view_image_list = [] 
+    
     while doCycle == True:
         try:
             
             street_path = mapFolder+f"{extract_and_sum_numbers(str(location[1]))}_{extract_and_sum_numbers(str(location[2]))}.pkl"
             #print(get_street_view_image(location[1:3],[0,0]))
             if geocode_address(location[0],api_key) != None:
-                
+                street_view_image_list = [] 
                 if not os.path.exists(street_path):
                     print("down process is on")
                     svil = []
@@ -236,8 +236,8 @@ def update_street_view(location, pitchheading,Picture):
             #print("after :",len(street_view_image_list),pitchheading)
             if Picture.value > 0:
                 #path
-                #print("go")
-                cv2.imwrite(pathFolder+f"{location[0]}_{pictureIndex}.jpg",street_view_image)
+                print("snapshot")
+                cv2.imwrite(pathFolder+f"{extract_and_sum_numbers(str(location[1]))}_{extract_and_sum_numbers(str(location[2]))}_{pictureIndex}.jpg",street_view_image)
                 pictureIndex += 1
                 Picture.value = 0
             #print("after 2 :",len(street_view_image_list),pitchheading)
@@ -264,6 +264,9 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
     pathSubFolder = "./picture/webcam/"
     os.makedirs(pathSubFolder,exist_ok=True)
     listsub = os.listdir(pathSubFolder)
+    mp_selfie_segmentation = mp.solutions.selfie_segmentation
+    selfie_segmentation = mp_selfie_segmentation.SelfieSegmentation(model_selection=1)
+    
     with mp_hands.Hands(min_detection_confidence=0.6, min_tracking_confidence=0.6) as hands:
         last_capture_time = time.time()  # 마지막 촬영 시간 초기화
         capture_interval = 6  # 촬영 간격 (초)
@@ -276,11 +279,13 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
 
                 if not ret:
                     continue
+                for_picture_frame = cv2.cvtColor(cv2.flip(frame,1),cv2.COLOR_BGR2RGB)
                 flipped_frame = cv2.flip(frame, 1)
                 # BGR을 RGB로 변환
                 rgb_frame = cv2.cvtColor(flipped_frame, cv2.COLOR_BGR2RGB)
 
-                results = pose.process(flipped_frame)
+                
+                results = pose.process(rgb_frame)
                 rpl = results.pose_landmarks
                 if rpl:
                     poseLandmarks = rpl.landmark
@@ -354,8 +359,8 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                                 current_time = time.time()
                                 if current_time - last_capture_time >= capture_interval:
                                     
-                                    sharedPicture.value = 1
-                                    cv2.imwrite('webcam.jpg', flipped_frame)
+                                    sharedPicture.value += 1
+                                    cv2.imwrite('webcam.jpg', for_picture_frame)
                                     play_mp3(mp3_file)
                                     # 화면 어둡게 만들기 (가중치 조절 가능)
                                     dark_frame = np.zeros_like(flipped_frame)
@@ -363,12 +368,11 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                                     cv2.addWeighted(flipped_frame, alpha, dark_frame, 1 - alpha, 0, flipped_frame)
                                     # 내가 원하는 이미지와 함께 촬영
                                     
-                                    
                                     last_capture_time = current_time
                                 
                         #print(Picture)
                 
-
+              
                 cv2.imshow('Webcam', flipped_frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
@@ -376,8 +380,8 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                 time.sleep(0.5)
                 print(traceback.format_exc())
 
-    cap.release()
-    cv2.destroyAllWindows()
+        cap.release()
+        cv2.destroyAllWindows()
 
 
 
