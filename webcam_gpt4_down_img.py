@@ -82,14 +82,16 @@ def head_nod_algorithm(left_eye,right_eye,poseLandmarks,steps,avg_hori,avg_vert)
     
     return ListReturn
 
-def speech_recognator(firstLocation,condition):
+def speech_recognator(firstLocation,condition,paintStart,voicePicture):
     api_key = "AIzaSyC1Ax9tlpuKI8qC7hh0RVnUNkJYrAOJe10"
     # 1) 음성 인식기
     condition = True
     while condition == True:
         try:
-            
-            print("record process is on")
+            print(voicePicture.value)
+            listOrder = ['보정','그림 시작','그림 종료','지워 줘','사진']
+            alter = ['드림 시작','드림 종료']
+            print("record process is on | 명령어 목록 : 보정, 그림 시작, 그림 종료, 지워 줘, 사진 ")
             r = sr.Recognizer() # 음성 인식을 위한 객체 생성            
             mic = sr.Microphone(device_index = 1)
             # 마이크 객체 선언, 인덱스는 각 노트북의 마이크 번호를 의미합니다. 만약 인식이 안되시면 바꿔보시면서 테스트 해보시면 될 듯 합니다.
@@ -101,7 +103,7 @@ def speech_recognator(firstLocation,condition):
             confidence = float(result['alternative'][0]['confidence'])
             if confidence > 0.85:
                 result1 = result['alternative'][0]['transcript']
-                if result1 != "보정":
+                if not result1 in listOrder :
                     print(f"입력 받았습니다. {result1}(으)로 이동합니다.")
                     values = geocode_address(result1,api_key)
                     if values[0] == True:
@@ -109,6 +111,21 @@ def speech_recognator(firstLocation,condition):
                         print(f"경도와 위도를 반환합니다 : {location2}")
                         firstLocation[:] = location2
                         prevLoc = location2
+                elif result1 == listOrder[0]:
+                    pass
+                elif result1 == listOrder[1] or result1 == alter[0]:
+                    print(f"입력 받았습니다. 그림을 시작합니다")
+                    paintStart.value = 1
+                elif result1 == listOrder[2] or result1 == alter[1]:
+                    print(f"입력 받았습니다. 그림을 종료합니다")
+                    paintStart.value = 0
+                elif result1 == listOrder[3]:
+                    print(f"입력 받았습니다. 그림을 지웁니다")
+                    paintStart.value = -1
+                elif result1 == listOrder[4]:
+                    print(f"사진 촬영 시작합니다")
+                    voicePicture.value = 1
+                    
 
         except:
             try:
@@ -303,7 +320,7 @@ def update_street_view(location, pitchheading,Picture):
             time.sleep(0.01)
     
 
-def webcam_pose_estimation(PitchHeading,sharedPicture):
+def webcam_pose_estimation(PitchHeading,sharedPicture,paintStart,voicePicture):
     cap = cv2.VideoCapture(0)
     mp_pose = mp.solutions.pose
     pose = mp_pose.Pose(min_detection_confidence=0.7, min_tracking_confidence=0.7)  # Initialize once
@@ -315,9 +332,11 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
     avghori = 0
     avgvert = 0
     photo_Delay = 0
+    photo_Switch = False
     pathSubFolder = "./picture/webcam/"
     os.makedirs(pathSubFolder,exist_ok=True)
-    
+    canvas = None
+
     mp_selfie_segmentation = mp.solutions.selfie_segmentation
     selfie_segmentation = mp_selfie_segmentation.SelfieSegmentation(model_selection=1)
     
@@ -340,7 +359,7 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                 results1 = selfie_segmentation.process(rgb_frame)
 
 
-                condition = np.stack((results1.segmentation_mask,) * 3, axis=-1) > 0.05
+                condition = np.stack((results1.segmentation_mask,) * 3, axis=-1) > 0.2
                 bg_color = np.ones(rgb_frame.shape, dtype=np.uint8) * 192  # 배경을 회색으로 설정
                 processed_frame = np.where(condition, rgb_frame, bg_color)
 
@@ -348,7 +367,9 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
                 processed_frame_bgr = cv2.cvtColor(processed_frame, cv2.COLOR_RGB2BGR)
                 
                 flipped_frame = processed_frame_bgr
-
+                if canvas is None:
+                    # canvas 초기화 (처음 한 번만 실행)
+                    canvas = np.zeros_like(frame)
 
                 results = pose.process(rgb_frame)
                 rpl = results.pose_landmarks
@@ -410,39 +431,69 @@ def webcam_pose_estimation(PitchHeading,sharedPicture):
 
                         # 검지와 엄지 각도 계산
                         indexfinger_tip = landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+                        
                         thumb_tip = landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
                         indexMCP = landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP]
                         wrist = landmarks.landmark[mp_hands.HandLandmark.WRIST]
                         dist_indexTIP_thumbTIP = distance_with_cv2(indexfinger_tip,thumb_tip)
                         dist_indeMCP_wrist = distance_with_cv2(indexMCP,wrist)
-                        
-                        #print(distance2)
-                        if sharedPicture.value < 1:
-                            if dist_indexTIP_thumbTIP/dist_indeMCP_wrist > 1.5:  # 이 값은 실험을 통해 조절할 수 있습니다.
-                                photo_Delay+=1
-                                if photo_Delay >45 and dist_indexTIP_thumbTIP/dist_indeMCP_wrist > 1.5:
-                                    photo_Delay = 0
-                                    current_time = time.time()
-                                    if current_time - last_capture_time >= capture_interval:
-                                        alpha_channel = np.where(results1.segmentation_mask > 0.05, 255, 0).astype(np.uint8)
+                    """x, y = int(indexfinger_tip.x * frame.shape[1]), int(indexfinger_tip.y * frame.shape[0])
+                    cv2.circle(canvas, (x, y), 10, (162, 180, 255), -1)"""
+                    if paintStart.value>0:
 
-                                        # RGB 프레임으로부터 BGR 프레임 생성
-                                        bgr_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR)
-                                        # BGR 프레임과 알파 채널을 결합하여 RGBA 이미지 생성
-                                        rgba_frame = cv2.merge((bgr_frame, alpha_channel))
-                                        
-                                        cv2.imwrite(pathSubFolder+f'webcam.png', rgba_frame)
-                                        play_mp3(mp3_file)
-                                        # 화면 어둡게 만들기 (가중치 조절 가능)
-                                        dark_frame = np.zeros_like(flipped_frame)
-                                        alpha = 0.1
-                                        cv2.addWeighted(flipped_frame, alpha, dark_frame, 1 - alpha, 0, flipped_frame)
-                                        # 내가 원하는 이미지와 함께 촬영
-                                        
-                                        last_capture_time = current_time
-                                        sharedPicture.value = 1
+                        curr_x, curr_y = int(indexfinger_tip.x * frame.shape[1]), int(indexfinger_tip.y * frame.shape[0])
+
+                        # 이전 좌표와 현재 좌표 사이에 선 그리기
+                        if prev_x != 0 and prev_y != 0:
+                            cv2.line(canvas, (prev_x, prev_y), (curr_x, curr_y), (162, 180, 255), 5)
+
+                        prev_x, prev_y = curr_x, curr_y  # 현재 좌표를 이전 좌표로 업데이트
+                    elif paintStart.value <0:
+                        canvas = np.zeros_like(flipped_frame)
+                else:
+                    # 손이 감지되지 않으면 이전 좌표 초기화
+                    prev_x, prev_y = 0, 0      
+                    dist_indexTIP_thumbTIP = 1 
+                    dist_indeMCP_wrist = 1
+                current_time = time.time()
+                if current_time - last_capture_time >= capture_interval:
+                    if sharedPicture.value < 1 or voicePicture.value > 0:
+                        
+                        if dist_indexTIP_thumbTIP/dist_indeMCP_wrist > 1.5 or voicePicture.value > 0 or photo_Switch == True:  # 이 값은 실험을 통해 조절할 수 있습니다.
+                            photo_Delay+=1
+                            photo_Switch = True
+
+                            cv2.putText(flipped_frame, f"take a picture in : {50-photo_Delay}",(200, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                            
+                            if photo_Delay > 50:
+                                if dist_indexTIP_thumbTIP/dist_indeMCP_wrist > 1.5 or voicePicture.value or photo_Switch == True> 0:
+                                    photo_Switch = False
+                                    photo_Delay = 0
                                     
-                            #print(Picture)
+                                    voicePicture.value = 0
+                                
+                                    alpha_channel = np.where(results1.segmentation_mask > 0.2, 255, 0).astype(np.uint8)
+
+                                    # RGB 프레임으로부터 BGR 프레임 생성
+                                    bgr_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR)
+                                    # BGR 프레임과 알파 채널을 결합하여 RGBA 이미지 생성
+                                    rgba_frame = cv2.merge((bgr_frame, alpha_channel))
+                                    
+                                    cv2.imwrite(pathSubFolder+f'webcam.png', rgba_frame)
+                                    play_mp3(mp3_file)
+                                    # 화면 어둡게 만들기 (가중치 조절 가능)
+                                    dark_frame = np.zeros_like(flipped_frame)
+                                    alpha2 = 0.1
+                                    cv2.addWeighted(flipped_frame, alpha2, dark_frame, 1 - alpha2, 0, flipped_frame)
+                                    # 내가 원하는 이미지와 함께 촬영
+                                    
+                                    last_capture_time = current_time
+                                    sharedPicture.value = 1
+                              
+                
+                #print(Picture)
+                alpha = 1  # canvas의 투명도
+                flipped_frame = cv2.addWeighted(flipped_frame, 1, canvas, alpha, 0)
                 
                 #cv2.imshow('Processed Frame', processed_frame_bgr)
                 cv2.imshow('Webcam', flipped_frame)
@@ -463,10 +514,12 @@ if __name__ == '__main__':
         PitchHeading= manager.list()
         Location = manager.list()
         sharedPicture = manager.Value('i', 0)
+        voicePicture = manager.Value('i',0)
         calibStart = manager.Value('i',0)
-        
-        pose_process = Process(target=webcam_pose_estimation, args=(PitchHeading,sharedPicture))
-        sound_process = Process(target=speech_recognator,args=(Location,True))
+        paintStart = manager.Value('i',0)
+
+        pose_process = Process(target=webcam_pose_estimation, args=(PitchHeading,sharedPicture,paintStart,voicePicture))
+        sound_process = Process(target=speech_recognator,args=(Location,True,paintStart,voicePicture))
         make_pickle_process = Process(target=make_street_view_pickle,args=(Location,))
         street_view_process = Process(target=update_street_view, args=(Location,PitchHeading,sharedPicture))
 
