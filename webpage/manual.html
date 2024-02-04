@@ -3,12 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@100..900&family=Noto+Sans+KR:wght@100..900&family=Noto+Serif+KR&family=Protest+Strike&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous">
+
+    <script>
+        function play1(){
+            var audio = document.getElementById("audio1")
+            audio.play();
+        }
+
+        function play2(){
+            var audio = document.getElementById("audio2")
+            audio.play();
+        }
+
+        function play3(){
+            var audio = document.getElementById("audio3")
+            audio.play();
+        }
+
+        function play4(){
+            var audio = document.getElementById("audio4")
+            audio.play();
+        }
+
+        function play5(){
+            var audio = document.getElementById("audio5")
+            audio.play();
+        }
+
+        function play6(){
+            var audio = document.getElementById("audio6")
+            audio.play();
+        }
+
+        function play7(){
+            var audio = document.getElementById("audio7")
+            audio.play();
+        }
+
+        function play8(){
+            var audio = document.getElementById("audio8")
+            audio.play();
+        }
+
+    </script>
+
     <title>설명서</title>
     <style>
+        
         body {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
+            background-image: url("https://i.imgur.com/I3w8LkX.jpeg") /*https://i.imgur.com/dQak73j.jpeg*/
         }
 
         .container {
@@ -44,50 +95,72 @@
             border: 1px solid #ddd; /* 줄의 색깔 지정 */
             margin: 20px 0; /* 여백 지정 */
         }
-
+        
     </style>
 </head>
 <body>
-<h1>걸어서 세계속으로 설명서</h1>
-
-<div class="container">
-    <div class="section">
-        <img src="./설명서/설명서1.png" alt="사진 1">
-        <p>git에 있는 파일을 모두 다운로드</p>
-    </div>
-
-    <div class="section">
-        <img src="./설명서/설명서2.png" alt="사진 2">
-        <p>미니콘다 프롬프트에서 모듈 다운로드하고 실행</p>
-    </div>
-
-    <div class="section">
-        <img src="./설명서/설명서3.png" alt="사진 3">
-        <p>실행화면</p>
-    </div>
-
-    <div class="section">
-        <img src="./설명서/설명서4.png" alt="사진 4">
-        <p>원하는 지역(예: 경복궁) 말해서 위치로 이동</p>
-    </div>
-
-    <div class="section">
-        <img src="./설명서/설명서5.png" alt="사진 5">
-        <p>돌아보고 싶은 방향으로 머리 회전</p>
-    </div>
-    
-    <div class="section">
-        <img src="./설명서/설명서6.png" alt="사진 6">
-        <p>"그림 시작" 명령어 실행 시 캠 위에 그리기 시작</p>
-
-    <div class="section">
-        <img src="./설명서/설명서7.png" alt="사진 7">
-        <p>"사진" 명령어 실행 시 화면 캡쳐 및 병합</p> 
+    <style>
         
-    
-    <div class="divider"></div>
+    </style>
 
-</div>
+    <h1>걸어서 세계속으로 설명서</h1>
+
+    <div class="container">
+        <div class="section">
+            <img src="./설명서/설명서1.png" alt="사진 1">
+            <p>git에 있는 파일 zip파일로 다운로드하고 압축 풀기</p>
+            <button type="button" class="btn btn-info" value="PLAY" onclick="play1()">재생▶︎</button>
+            <audio id="audio1" src="./설명서/설명서1.mp3"></audio>
+        </div>
+
+        <div class="section">
+            <img src="./설명서/설명서2.png" alt="사진 2">
+            <p>미니콘다 프롬프트에서 파이썬 3.8 환경을 만든 후 다운로드하고 실행</p>
+            <button type="button" class="btn btn-info" value="PLAY" onclick="play2()">재생▶︎</button>
+            <audio id="audio2" src="./설명서/설명서2.mp3"></audio>
+        </div>
+
+        <div class="section">
+            <img src="./설명서/설명서3.png" alt="사진 3">
+            <p>보정과정(위 숫자가 300/300이 될 때까지 대기)<br>명령어 목록: 보정, 그림 시작, 그림 종료, 지워 줘, 사진</p>
+            <button type="button" class="btn btn-info" value="PLAY" onclick="play3()">재생▶︎</button>
+            <audio id="audio3" src="./설명서/설명서3.mp3"></audio>
+        </div>
+
+        <div class="section">
+            <img src="./설명서/설명서4.png" alt="사진 4">
+            <p>녹음이 시작되는 소리가 나면 원하는 지역(예: 경복궁)을 말해서 위치로 이동</p>
+            <button type="button" class="btn btn-info" value="PLAY" onclick="play4()">재생▶︎</button>
+            <audio id="audio4" src="./설명서/설명서4.mp3"></audio>
+        </div>
+
+        <div class="section">
+            <img src="./설명서/설명서5.png" alt="사진 5">
+            <p>돌아보고 싶은 방향으로 머리 회전(회전 시 해당 방향으로 시선 이동)</p>
+            <button type="button" class="btn btn-info" value="PLAY" onclick="play5()">재생▶︎</button>
+            <audio id="audio5" src="./설명서/설명서5.mp3"></audio>
+        </div>
+        
+        <div class="section">
+            <img src="./설명서/설명서6.png" alt="사진 6">
+            <p>"그림 시작" 명령어 실행 시 캠 위에 그리기 시작</p>
+            <button type="button" class="btn btn-info" value="PLAY" onclick="play6()">재생▶︎</button>
+            <audio id="audio6" src="./설명서/설명서6.mp3"></audio>
+        </div>
+
+        <div class="section">
+            <img src="./설명서/설명서7.png" alt="사진 7">
+            <p>"사진" 명령어 실행 시 화면 캡쳐 및 병합<br>(명령어 "사진" 또는 손흥민 포즈를 취할 시 사진을 찍을 수 있음)</p>
+            <button type="button" class="btn btn-info" value="PLAY" onclick="play7()">재생▶︎</button>
+            <audio id="audio7" src="./설명서/설명서7.mp3"></audio>
+        </div>
+            
+        <div class="section">
+            <img src="./설명서/설명서8.png" alt="사진 8">
+            <p>"지워 줘" 명령어 실행 시 캠 위에 그렸던 그림 삭제</p>
+            <button type="button" class="btn btn-info" value="PLAY" onclick="play8()">재생▶︎</button>
+            <audio id="audio8" src="./설명서/설명서8.mp3"></audio>
+        </div>
 
 </body>
 </html>
