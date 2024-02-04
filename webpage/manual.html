@@ -70,7 +70,7 @@
         }
 
         .section {
-            text-align: center;
+            text-align: left;
             margin-bottom: 20px;
             width: 45%; /* 각 섹션의 너비 조절 */
         }
@@ -90,13 +90,6 @@
             border-radius: 8px;
         }
 
-        p{
-            font-family: "Noto Serif KR", serif;
-            font-weight: 400;
-            font-style: normal;
-
-        }
-
         .divider {
             width: 100%;
             border: 1px solid #ddd; /* 줄의 색깔 지정 */
@@ -110,7 +103,7 @@
         
     </style>
 
-    <h1><p>걸어서 세계속으로 설명서</p></h1>
+    <h1>걸어서 세계속으로 설명서</h1>
 
     <div class="container">
         <div class="section">
@@ -122,49 +115,49 @@
 
         <div class="section">
             <img src="./설명서/설명서2.png" alt="사진 2">
-            <p>미니콘다 프롬프트에서 파이썬 3.8 환경을 만든 후 다운로드하고 실행</p>
+            <p>미니콘다 프롬프트에서 파이썬 3.8 환경을 만든 후 프로그램 폴더 내의 install_code.py를 python install_code.py 명령어로 실행</p>
             <button type="button" class="btn btn-info" value="PLAY" onclick="play2()">재생▶︎</button>
             <audio id="audio2" src="./설명서/설명서2.mp3"></audio>
         </div>
 
         <div class="section">
             <img src="./설명서/설명서3.png" alt="사진 3">
-            <p>보정과정(위 숫자가 300/300이 될 때까지 대기)<br>명령어 목록: 보정, 그림 시작, 그림 종료, 지워 줘, 사진</p>
+            <p>보정과정 : 사용자는 노트북 중앙에 서서,위 숫자가 300/300이 될 때까지 웹캠 응시</p>
             <button type="button" class="btn btn-info" value="PLAY" onclick="play3()">재생▶︎</button>
             <audio id="audio3" src="./설명서/설명서3.mp3"></audio>
         </div>
 
         <div class="section">
             <img src="./설명서/설명서4.png" alt="사진 4">
-            <p>녹음이 시작되는 소리가 나면 원하는 지역(예: 경복궁)을 말해서 위치로 이동</p>
+            <p>음성어 장소 입력 과정 : 녹음이 시작된다는 메시지가 출력되면 원하는 지역(예: 경복궁)을 말해서 위치로 이동</p>
             <button type="button" class="btn btn-info" value="PLAY" onclick="play4()">재생▶︎</button>
             <audio id="audio4" src="./설명서/설명서4.mp3"></audio>
         </div>
 
         <div class="section">
             <img src="./설명서/설명서5.png" alt="사진 5">
-            <p>돌아보고 싶은 방향으로 머리 회전(회전 시 해당 방향으로 시선 이동)</p>
+            <p>스트릿뷰 로딩 후, 사용자의 시선에 따라 뷰의 시점 이동</p>
             <button type="button" class="btn btn-info" value="PLAY" onclick="play5()">재생▶︎</button>
             <audio id="audio5" src="./설명서/설명서5.mp3"></audio>
         </div>
         
         <div class="section">
             <img src="./설명서/설명서6.png" alt="사진 6">
-            <p>"그림 시작" 명령어 실행 시 캠 위에 그리기 시작</p>
+            <p>음성 명령 입력 : 추가적인 음성 명령어 입력 시 해당 프로세스 실행<br>명령어 목록: <b>보정, 그림 시작, 그림 종료, 지워 줘, 사진</b><br>(예: "그림 시작" 명령어 실행 시 스트릿 뷰 배경에 그리기 시작)</p>
             <button type="button" class="btn btn-info" value="PLAY" onclick="play6()">재생▶︎</button>
             <audio id="audio6" src="./설명서/설명서6.mp3"></audio>
         </div>
 
         <div class="section">
             <img src="./설명서/설명서7.png" alt="사진 7">
-            <p>"사진" 명령어 실행 시 화면 캡쳐 및 병합<br>(명령어 "사진" 또는 손흥민 포즈를 취할 시 사진을 찍을 수 있음)</p>
+            <p>음성 명령어 "사진" 입력 또는 손으로 손흥민 세레머니 포즈를 취할 시, 스트릿 뷰 화면 캡쳐 및 병합<br></p>
             <button type="button" class="btn btn-info" value="PLAY" onclick="play7()">재생▶︎</button>
             <audio id="audio7" src="./설명서/설명서7.mp3"></audio>
         </div>
             
         <div class="section">
             <img src="./설명서/설명서8.png" alt="사진 8">
-            <p>"지워 줘" 명령어 실행 시 캠 위에 그렸던 그림 삭제</p>
+            <p>"지워 줘" 명령어 실행 시 그림 전체 삭제</p>
             <button type="button" class="btn btn-info" value="PLAY" onclick="play8()">재생▶︎</button>
             <audio id="audio8" src="./설명서/설명서8.mp3"></audio>
         </div>
