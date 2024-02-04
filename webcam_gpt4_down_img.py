@@ -9,21 +9,36 @@ import multiprocessing
 import math
 import time
 import traceback
-import asyncio
 import os
-import sys
-import urllib.request
-import json
+
 import speech_recognition as sr
-from copy import deepcopy
 import pickle
-import re
+
 import pygame
+
+country_greetings = {
+    "id": "Halo",  # 인도네시아어
+    "jp": "こんにちは",  # 일본어
+    "gr": "Γειά σου",  # 그리스어
+    "cn": "你好",  # 중국어 (간체)
+    "ru": "привет",  # 러시아어
+    "th": "สวัสดี",  # 태국어
+    "tr": "Merhaba",  # 터키어
+    "fr": "Bonjour",  # 프랑스어
+    "ph": "Kamusta",  # 필리핀어
+    "vn": "Xin chào",  # 베트남어
+    "in": "नमस्ते",  # 힌디어 (인도어)
+    "it": "Ciao",  # 이탈리아어
+    "de": "Hallo" #독일
+}
+
 
 def play_mp3(mp3_file):
     pygame.mixer.init()
     pygame.mixer.music.load(mp3_file)
     pygame.mixer.music.play()
+    while pygame.mixer.music.get_busy():
+        pygame.time.Clock().tick(10)
 
 mp3_file = "./son.mp3"
 
@@ -107,10 +122,6 @@ def speech_recognator(firstLocation,condition,paintStart,voicePicture):
             result = r.recognize_google(audio, language = "ko-KR",show_all=True) # 인식한 음성을 텍스트로 변환
 
             confidence = float(result['alternative'][0]['confidence'])
-            ###### 삭제할 파트
-            
-            #print(location2)
-            ######
             if confidence >0.85:
                 result1 = result['alternative'][0]['transcript']
                 if not result1 in listOrder and not result1 in alter:
@@ -121,6 +132,9 @@ def speech_recognator(firstLocation,condition,paintStart,voicePicture):
                         print(f"경도와 위도를 반환합니다 : {location2}")
                         firstLocation[:] = location2
                         prevLoc = location2
+                        country_code = get_country_code_from_api(values[3])
+                        print(country_code)
+                        speak_with_country_code(country_code)
 
                 elif result1 == listOrder[0]:
                     pass
@@ -173,14 +187,47 @@ def geocode_address(address, api_key):
             location1 = data["results"][0]["geometry"]["location"]
             latitude = location1["lat"]
             longitude = location1["lng"]
-
-            return [True,latitude, longitude]
+    
+            return [True,latitude, longitude,data]
         else:
             print(f"Geocoding API error: {data['status']} - {data.get('error_message')}")
     else:
         print(f"Geocoding API request failed with status code: {response.status_code}")
 
     return [False]
+
+def get_country_code_from_api(api_response):
+    # 국가 코드를 얻는 실제 API 호출 및 파싱이 이곳에 들어가야 합니다.
+    # 여기서는 간단히 첫 번째 결과의 국가 코드를 추출하도록 가정합니다.
+    # print(api_response)
+    country_code = ""
+    for component in api_response['results'][0]['address_components']:
+        if 'country' in component['types']:
+            country_code = component.get("short_name", "")
+            break
+
+    print(country_code)
+    # print(country_code)
+    country_code = str(country_code)
+    # print(country_code)
+    return country_code.lower()
+
+# .mp3파일을 이용한 음성 출력
+def speak_with_country_code(country_code):
+    if country_code == "kr":
+        # print(country_code)
+        #play_mp3("./voice/안녕하세요.mp3")
+        pass
+        time.sleep(1)
+    elif country_code in country_greetings:
+        file_path = f"voice/{country_code}.mp3"
+        play_mp3(file_path)
+        time.sleep(1)
+    else:
+        print(country_code)
+        play_mp3("./voice/hello.mp3")
+        time.sleep(1)
+
 
 def get_street_view_image( loc, ph):
     api_key = "AIzaSyC1Ax9tlpuKI8qC7hh0RVnUNkJYrAOJe10"
@@ -461,7 +508,7 @@ def webcam_pose_estimation(PitchHeading,sharedPicture,paintStart,voicePicture,sh
                             ratioPicture = 1
                     """x, y = int(indexTip.x * frame.shape[1]), int(indexTip.y * frame.shape[0])
                     cv2.circle(canvas, (x, y), 10, (162, 180, 255), -1)"""
-                    if paintStart.value>0 and dist_indexTIP_indexMCP > 0.8*dist_indeMCP_wrist :
+                    if paintStart.value>0 and dist_indexTIP_indexMCP > 0.7*dist_indeMCP_wrist :
                         curr_x, curr_y = int(indexTip.x * frame.shape[1]), int(indexTip.y * frame.shape[0])
 
                         # 이전 좌표와 현재 좌표 사이에 선 그리기
@@ -481,7 +528,7 @@ def webcam_pose_estimation(PitchHeading,sharedPicture,paintStart,voicePicture,sh
                 if current_time - last_capture_time >= capture_interval:
                     if sharedPicture.value < 1 or voicePicture.value > 0:
                         
-                        if ratioPicture > 1.5 or voicePicture.value > 0 or photo_Switch == True:  # 이 값은 실험을 통해 조절할 수 있습니다.
+                        if ratioPicture > 1.7 or voicePicture.value > 0 or photo_Switch == True:  # 이 값은 실험을 통해 조절할 수 있습니다.
                             photo_Delay+=1
                             photo_Switch = True
 
@@ -548,7 +595,7 @@ if __name__ == '__main__':
         sharedPicture = manager.Value('i', 0)
         voicePicture = manager.Value('i',0)
         calibStart = manager.Value('i',0)
-        paintStart = manager.Value('i',1)###
+        paintStart = manager.Value('i',0)###
         sharedCanvas = multiprocessing.Array('B',640*640*3)
 
         pose_process = Process(target=webcam_pose_estimation, args=(PitchHeading,sharedPicture,paintStart,voicePicture,sharedCanvas))
