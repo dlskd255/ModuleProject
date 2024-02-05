@@ -100,6 +100,7 @@ def speech_recognator(firstLocation,condition,paintStart,voicePicture):
     api_key = "AIzaSyC1Ax9tlpuKI8qC7hh0RVnUNkJYrAOJe10"
     # 1) 음성 인식기
     condition = True
+    localValue = False
     while condition == True:
         try:
             """result1 = "경복궁"
@@ -112,48 +113,54 @@ def speech_recognator(firstLocation,condition,paintStart,voicePicture):
             
             listOrder = ['보정','그림 시작','그림 종료','지워 줘','사진']
             alter = ['드림 시작','드림 종료']
-            print("record process is on | 명령어 목록 : 보정, 그림 시작, 그림 종료, 지워 줘, 사진 ")
-            r = sr.Recognizer() # 음성 인식을 위한 객체 생성            
-            mic = sr.Microphone(device_index = 1)
-            # 마이크 객체 선언, 인덱스는 각 노트북의 마이크 번호를 의미합니다. 만약 인식이 안되시면 바꿔보시면서 테스트 해보시면 될 듯 합니다.
-            with mic as source:
-                audio = r.listen(source,timeout=5, phrase_time_limit = 5) # 마이크에서 5초 동안 음성을 듣고 audio 변수에 저장합니다.
+            if localValue == False:
+                print("음성 청취 시작 | 명령어 목록 : 사진 ")
+                r = sr.Recognizer() # 음성 인식을 위한 객체 생성            
+                mic = sr.Microphone(device_index = 1)
+                # 마이크 객체 선언, 인덱스는 각 노트북의 마이크 번호를 의미합니다. 만약 인식이 안되시면 바꿔보시면서 테스트 해보시면 될 듯 합니다.
+                with mic as source:
+                    audio = r.listen(source,timeout=5, phrase_time_limit = 5) # 마이크에서 5초 동안 음성을 듣고 audio 변수에 저장합니다.
 
-            result = r.recognize_google(audio, language = "ko-KR",show_all=True) # 인식한 음성을 텍스트로 변환
+                result = r.recognize_google(audio, language = "ko-KR",show_all=True) # 인식한 음성을 텍스트로 변환
+                
+                confidence = float(result['alternative'][0]['confidence'])
+                if confidence >0.85:
+                    result1 = result['alternative'][0]['transcript']
+                    if not result1 in listOrder and not result1 in alter:
+                        print(f"입력 받았습니다. {result1}(으)로 이동합니다.")
+                        values = geocode_address(result1,api_key)
+                        if values[0] == True:
+                            location2 = [result1]+[round(values[1],6)]+[round(values[2],6)]
+                            print(f"경도와 위도를 반환합니다 : {location2}")
+                            firstLocation[:] = location2
+                            prevLoc = location2
+                            country_code = get_country_code_from_api(values[3])
+                            print(country_code)
+                            speak_with_country_code(country_code)
+                            
 
-            confidence = float(result['alternative'][0]['confidence'])
-            if confidence >0.85:
-                result1 = result['alternative'][0]['transcript']
-                if not result1 in listOrder and not result1 in alter:
-                    print(f"입력 받았습니다. {result1}(으)로 이동합니다.")
-                    values = geocode_address(result1,api_key)
-                    if values[0] == True:
-                        location2 = [result1]+[round(values[1],6)]+[round(values[2],6)]
-                        print(f"경도와 위도를 반환합니다 : {location2}")
-                        firstLocation[:] = location2
-                        prevLoc = location2
-                        country_code = get_country_code_from_api(values[3])
-                        print(country_code)
-                        speak_with_country_code(country_code)
-
-                elif result1 == listOrder[0]:
-                    pass
-                elif result1 == listOrder[1] or result1 == alter[0]:
-                    print(f"입력 받았습니다. 그림을 시작합니다")
-                    paintStart.value = 1
-                elif result1 == listOrder[2] or result1 == alter[1]:
-                    print(f"입력 받았습니다. 그림을 종료합니다")
-                    paintStart.value = 0
-                elif result1 == listOrder[3]:
-                    print(f"입력 받았습니다. 그림을 지웁니다")
-                    paintStart.value = -1
-                elif result1 == listOrder[4]:
-                    print(f"사진 촬영 시작합니다")
-                    voicePicture.value = 1
-                    
+                    elif result1 == listOrder[0]:
+                        pass
+                    elif result1 == listOrder[1] or result1 == alter[0]:
+                        print(f"입력 받았습니다. 그림을 시작합니다")
+                        paintStart.value = 1
+                    elif result1 == listOrder[2] or result1 == alter[1]:
+                        print(f"입력 받았습니다. 그림을 종료합니다")
+                        paintStart.value = 0
+                    elif result1 == listOrder[3]:
+                        print(f"입력 받았습니다. 그림을 지웁니다")
+                        paintStart.value = -1
+                    elif result1 == listOrder[4]:
+                        print(f"사진 촬영 시작합니다")
+                        voicePicture.value = 1
+                    localValue = True
+                print("음성 청취 종료")
+            else:
+                time.sleep(5)
+                localValue = False            
 
         except:
-            print(traceback.format_exc())
+            #print(traceback.format_exc())
             try:
                 firstLocation[:] = prevLoc
 
@@ -380,7 +387,7 @@ def update_street_view(location, pitchheading,Picture,sharedCanvas):
                 break
             
         except:
-            print(traceback.format_exc())
+            #print(traceback.format_exc())
             time.sleep(0.01)
     
 
@@ -579,7 +586,7 @@ def webcam_pose_estimation(PitchHeading,sharedPicture,paintStart,voicePicture,sh
                     break
             except:
                 time.sleep(0.5)
-                print(traceback.format_exc())
+                #print(traceback.format_exc())
 
         cap.release()
         cv2.destroyAllWindows()
