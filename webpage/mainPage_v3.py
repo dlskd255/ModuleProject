@@ -10,7 +10,6 @@ import pandas as pd
 from configparser import ConfigParser
 from PIL import Image
 
-# 배경이미지 가져오기
 def add_bg_from_url():
     st.markdown(
          f"""
@@ -28,7 +27,6 @@ def add_bg_from_url():
 
 add_bg_from_url() 
 
-# 걸어서 세계속으로 제목 이미지 페이지 삽입
 image_witw = "./walkintoworld.webp"
 
 original_image = Image.open(image_witw)
@@ -140,7 +138,6 @@ with st.sidebar:
         """
         <style>
         .main-page-header {
-            font-family: 'Caveat Brush', cursive;
             font-size: 80px;
             text-align: center;
         }
@@ -181,7 +178,7 @@ with st.sidebar:
 if selected == "메인 페이지":
     # Header
     header_html = centered_title('Main Page')
-    st.markdown("<p class='main-page-header'>Main Page</p>", unsafe_allow_html=True)
+    st.markdown("<p class='main-page-header'>수요일은 칼퇴</p>", unsafe_allow_html=True)
 
     st.divider()
 
@@ -189,13 +186,14 @@ if selected == "메인 페이지":
     with st.container():
         col1, col2 = st.columns(2)
         with col1:
-            st.header('Use Cases')
+            st.header('팀원 목록')
             st.markdown(
                 """
-                - _Remote work got you thinking about relocation?_
-                - _Looking for a new vacation spot?_
-                - _Conducting market research for product expansion?_
-                - _Just here to play and learn?_
+                - _이승환_
+                - _박세웅_
+                - _이재범_
+                - _최재권_
+                - _황지의_
                 """
             )
         with col2:
@@ -216,15 +214,7 @@ if selected == "걸어서 세계속으로":
 
         # 새로운 브라우저 창에서 HTML 파일 열기
         webbrowser.open('file://' + documentation_path, new=2)
-
-    # streamlit_webrtc를 사용하여 웹캠 표시
-    webrtc_ctx = webrtc_streamer(
-        key="example",
-        video_processor_factory=CustomVideoProcessor,  # CustomVideoProcessor를 사용하여 좌우 반전 및 밝기 조절
-        rtc_configuration=RTCConfiguration(
-            {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
-        ),
-    )
+    st.divider() 
 
     if st.button('앨범 보기'):
         show_album()
