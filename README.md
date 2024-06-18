@@ -1,3 +1,7 @@
+
+코드 실행을 위한 팁
+----
+
 pip install -r requirements.txt : 설치 명령어. python 3.8 environment 먼저 만들고 그 env를 activate 한다음에 그 안에서 타이핑하면됩니다.
 ** for /f %%i in (requirements.txt) do pip install %%i || echo Failed to install %%i ** : 도중에 에러있을경우 이렇게 실행.  
 
@@ -12,3 +16,4 @@ pip install -r requirements.txt : 설치 명령어. python 3.8 environment 먼�
 
 
 pip list --format=freeze > requirements.txt : 가상환경 requirements.txt로 저장
+----
